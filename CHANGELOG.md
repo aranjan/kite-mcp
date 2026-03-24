@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-03-24
+
+### Added
+- Quote fallback for personal Kite Connect apps -- get_quote and get_ohlc now fall back to holdings/positions data when the market data API is unavailable
+- CONTRIBUTING.md with development setup and new tool guide
+- GitHub Actions CI across Python 3.10-3.13
+- Smithery config (smithery.yaml) for directory listing
+- 12 tests covering auth, server tool registration, and CLI
+- Logo
+
+### Changed
+- Centered README header with logo and badges
+- Compatible with section listing MCP clients
+
 ## [0.1.1] - 2026-03-24
 
 ### Changed
