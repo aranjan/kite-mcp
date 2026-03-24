@@ -2,6 +2,7 @@
 
 import json
 
+from kiteconnect import exceptions as kite_exceptions
 from mcp.server.fastmcp import FastMCP
 
 from kite_mcp.auth import automated_login, get_authenticated_kite, load_credentials
@@ -10,8 +11,25 @@ mcp = FastMCP("kite")
 
 
 def _kite():
-    """Return an authenticated KiteConnect instance."""
-    return get_authenticated_kite(load_credentials())
+    """Return an authenticated KiteConnect instance. Auto-refreshes token on auth failure."""
+    creds = load_credentials()
+    kite = get_authenticated_kite(creds)
+
+    # Validate the token is actually working by making a lightweight call
+    try:
+        kite.profile()
+    except (kite_exceptions.TokenException, kite_exceptions.PermissionException):
+        # Token is stale/invalidated — force a fresh login
+        if creds["totp_secret"]:
+            token = automated_login(
+                creds["api_key"], creds["api_secret"],
+                creds["user_id"], creds["password"], creds["totp_secret"],
+            )
+            kite.set_access_token(token)
+        else:
+            raise RuntimeError("Token expired and KITE_TOTP_SECRET not set. Run 'kite-mcp-login'.")
+
+    return kite
 
 
 @mcp.tool()
