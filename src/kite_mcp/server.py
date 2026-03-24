@@ -96,16 +96,62 @@ def get_margins() -> str:
 
 @mcp.tool()
 def get_quote(instruments: list[str]) -> str:
-    """Get live market quote for one or more instruments. Use NSE: prefix for stocks (e.g., NSE:RELIANCE, NSE:INFY)."""
+    """Get live market quote for one or more instruments. Use NSE: prefix for stocks (e.g., NSE:RELIANCE, NSE:INFY). Falls back to holdings/positions data if the market data API is not available."""
     kite = _kite()
-    return json.dumps(kite.quote(instruments), indent=2, default=str)
+    try:
+        return json.dumps(kite.quote(instruments), indent=2, default=str)
+    except Exception:
+        # Fallback: build quotes from holdings and positions data
+        return _quote_fallback(kite, instruments)
 
 
 @mcp.tool()
 def get_ohlc(instruments: list[str]) -> str:
-    """Get OHLC (open, high, low, close) and last price for instruments."""
+    """Get OHLC (open, high, low, close) and last price for instruments. Falls back to holdings/positions data if the market data API is not available."""
     kite = _kite()
-    return json.dumps(kite.ohlc(instruments), indent=2, default=str)
+    try:
+        return json.dumps(kite.ohlc(instruments), indent=2, default=str)
+    except Exception:
+        return _quote_fallback(kite, instruments)
+
+
+def _quote_fallback(kite, instruments: list[str]) -> str:
+    """Build price data from holdings and positions when the quote API is unavailable."""
+    holdings = kite.holdings()
+    positions = kite.positions()
+
+    # Build a lookup by tradingsymbol
+    price_map = {}
+    for h in holdings:
+        symbol = h["tradingsymbol"]
+        price_map[symbol] = {
+            "last_price": h["last_price"],
+            "average_price": h["average_price"],
+            "quantity": h["quantity"],
+            "pnl": round((h["last_price"] - h["average_price"]) * h["quantity"], 2),
+            "source": "holdings",
+        }
+    for p in positions.get("net", []):
+        symbol = p["tradingsymbol"]
+        if symbol not in price_map or p.get("last_price"):
+            price_map[symbol] = {
+                "last_price": p["last_price"],
+                "average_price": p["average_price"],
+                "quantity": p["quantity"],
+                "pnl": p.get("pnl", 0),
+                "source": "positions",
+            }
+
+    result = {}
+    for inst in instruments:
+        # Extract symbol from "NSE:RELIANCE" format
+        symbol = inst.split(":")[-1] if ":" in inst else inst
+        if symbol in price_map:
+            result[inst] = price_map[symbol]
+        else:
+            result[inst] = {"error": f"{symbol} not found in holdings or positions. Market data API not available on personal apps."}
+
+    return json.dumps(result, indent=2, default=str)
 
 
 @mcp.tool()

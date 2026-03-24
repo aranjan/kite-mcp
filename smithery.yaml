@@ -1,0 +1,37 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  required:
+    - kiteApiKey
+    - kiteApiSecret
+    - kiteUserId
+    - kitePassword
+  properties:
+    kiteApiKey:
+      type: string
+      title: "Kite API Key"
+      description: "Your Kite Connect API key"
+    kiteApiSecret:
+      type: string
+      title: "Kite API Secret"
+      description: "Your Kite Connect API secret"
+    kiteUserId:
+      type: string
+      title: "Zerodha User ID"
+      description: "Your Zerodha client ID (e.g., AB1234)"
+    kitePassword:
+      type: string
+      title: "Zerodha Password"
+      description: "Your Zerodha login password"
+    kiteTotpSecret:
+      type: string
+      title: "TOTP Secret"
+      description: "Base32 TOTP seed for automated login. Optional -- without this you must run kite-mcp-login manually each day."
+
+commandFunction:
+  |-
+    (config) => ({ command: 'kite-mcp', args: [], env: { KITE_API_KEY: config.kiteApiKey, KITE_API_SECRET: config.kiteApiSecret, KITE_USER_ID: config.kiteUserId, KITE_PASSWORD: config.kitePassword, KITE_TOTP_SECRET: config.kiteTotpSecret || '' } })
