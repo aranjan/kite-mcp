@@ -8,6 +8,7 @@
   <a href="https://pypi.org/project/kite-mcp/"><img src="https://badge.fury.io/py/kite-mcp.svg" alt="PyPI version"></a>
   <a href="https://github.com/aranjan/kite-mcp/actions/workflows/ci.yml"><img src="https://github.com/aranjan/kite-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://smithery.ai/servers/aranjan/kite-mcp"><img src="https://smithery.ai/badge/aranjan/kite-mcp" alt="Smithery"></a>
 </p>
 
 MCP server for [Zerodha Kite](https://kite.zerodha.com/) -- trade Indian stocks through natural conversation with any [MCP-compatible](https://modelcontextprotocol.io/) AI assistant.
