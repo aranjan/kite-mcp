@@ -59,6 +59,19 @@ Your AI assistant interprets your intent, maps stock names to symbols (e.g., "In
 - Supports delivery (CNC), intraday (MIS), and F&O (NRML) orders
 - After-market orders (AMO) supported
 
+## Compatible with
+
+Works with any MCP-compatible client, including:
+
+| Client | Platform |
+|--------|----------|
+| [Claude Desktop](https://claude.ai/download) | macOS, Windows |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Terminal (macOS, Linux, Windows) |
+| [Cursor](https://cursor.sh/) | macOS, Windows, Linux |
+| [Windsurf](https://codeium.com/windsurf) | macOS, Windows, Linux |
+| [Continue](https://continue.dev/) | VS Code, JetBrains |
+| Any MCP-compatible client | See [MCP clients list](https://modelcontextprotocol.io/clients) |
+
 ## Quick Start
 
 ### 1. Install
