@@ -1,4 +1,4 @@
-"""Zerodha Kite MCP Server — exposes Kite Connect as tools for Claude."""
+"""Zerodha Kite MCP Server — exposes Kite Connect as tools for AI assistants."""
 
 import json
 

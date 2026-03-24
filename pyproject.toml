@@ -5,14 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "kite-mcp"
 version = "0.1.0"
-description = "MCP server for Zerodha Kite — trade Indian stocks via Claude and other AI assistants"
+description = "MCP server for Zerodha Kite — trade Indian stocks via any MCP-compatible AI assistant"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
     { name = "Amit Ranjan", email = "mail2amit.ranjan@gmail.com" },
 ]
-keywords = ["mcp", "zerodha", "kite", "trading", "claude", "stocks", "india"]
+keywords = ["mcp", "zerodha", "kite", "trading", "stocks", "india"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,8 +32,8 @@ kite-mcp = "kite_mcp.server:main"
 kite-mcp-login = "kite_mcp.cli:login"
 
 [project.urls]
-Homepage = "https://github.com/amitranjan/kite-mcp"
-Issues = "https://github.com/amitranjan/kite-mcp/issues"
+Homepage = "https://github.com/aranjan/kite-mcp"
+Issues = "https://github.com/aranjan/kite-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kite_mcp"]

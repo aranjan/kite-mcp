@@ -1,33 +1,33 @@
 # kite-mcp
 
-MCP server for [Zerodha Kite](https://kite.zerodha.com/) -- trade Indian stocks through natural conversation with Claude and other AI assistants.
+MCP server for [Zerodha Kite](https://kite.zerodha.com/) -- trade Indian stocks through natural conversation with any [MCP-compatible](https://modelcontextprotocol.io/) AI assistant.
 
 ## Why an MCP server instead of a Python library?
 
 Traditional Kite wrappers require you to write Python code to trade. With kite-mcp, you just talk:
 
 ```
-You:    "Buy 50 Reliance at market price"
-Claude: checks quote, verifies funds, asks for confirmation, places order
+You:       "Buy 50 Reliance at market price"
+Assistant: checks quote, verifies funds, asks for confirmation, places order
 
-You:    "How's my portfolio doing?"
-Claude: fetches holdings, calculates P&L, summarizes gainers and losers
+You:       "How's my portfolio doing?"
+Assistant: fetches holdings, calculates P&L, summarizes gainers and losers
 
-You:    "Set a stop-loss on my HAL position at 3400"
-Claude: places a GTT trigger for you
+You:       "Set a stop-loss on my HAL position at 3400"
+Assistant: places a GTT trigger for you
 ```
 
 No code. No scripts. No terminal. Just conversation.
 
-kite-mcp connects Claude (or any [MCP-compatible](https://modelcontextprotocol.io/) AI assistant) directly to your Zerodha account with 14 trading tools, automated TOTP login, and auto-retry on expired tokens.
+kite-mcp connects any MCP-compatible AI assistant directly to your Zerodha account with 14 trading tools, automated TOTP login, and auto-retry on expired tokens.
 
 ## How it works
 
 ```
-You (natural language) --> Claude --> kite-mcp (MCP server) --> Zerodha Kite API
+You (natural language) --> AI Assistant --> kite-mcp (MCP server) --> Zerodha Kite API
 ```
 
-Claude interprets your intent, maps stock names to symbols (e.g., "Infosys" to NSE:INFY), checks your funds, and executes trades -- all through the MCP protocol. The server handles authentication automatically, including daily token refresh via TOTP.
+Your AI assistant interprets your intent, maps stock names to symbols (e.g., "Infosys" to NSE:INFY), checks your funds, and executes trades -- all through the MCP protocol. The server handles authentication automatically, including daily token refresh via TOTP.
 
 ## Features
 
@@ -85,12 +85,9 @@ You also need:
 
 </details>
 
-### 3. Configure Claude Desktop
+### 3. Configure your MCP client
 
-Add this to your Claude Desktop config:
-
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+Add this to your MCP client configuration. The config location depends on your client -- refer to your client's documentation for the exact path.
 
 ```json
 {
@@ -109,11 +106,11 @@ Add this to your Claude Desktop config:
 }
 ```
 
-Restart Claude Desktop. You're ready to trade.
+Restart your MCP client. You're ready to trade.
 
 ### 4. Try it out
 
-Open a new chat in Claude Desktop and try:
+Open a new chat and try:
 
 - "Show my portfolio holdings"
 - "What's Tata Motors trading at?"
@@ -122,7 +119,7 @@ Open a new chat in Claude Desktop and try:
 - "Cancel my last pending order"
 - "Show my top gainers and losers"
 
-Claude understands stock names in plain English -- no need to use trading symbols.
+The AI assistant understands stock names in plain English -- no need to use trading symbols.
 
 ## Environment Variables
 
@@ -154,13 +151,13 @@ This caches the access token for the rest of the day. The MCP server will use th
 - **Quick trades** -- "Buy 50 Reliance" / "Sell all my Yes Bank"
 - **Research + action** -- "What's the 52-week high of HDFC Bank? Should I add more at current levels?"
 - **Risk management** -- "Set a stop-loss GTT on my BDL position at 1100"
-- **Scheduled reports** -- Combine with Claude's scheduled tasks to get a daily portfolio summary at 9am
+- **Scheduled reports** -- Combine with MCP scheduled tasks to get a daily portfolio summary at 9am
 - **Slack integration** -- Pair with Slack MCP to receive portfolio alerts in your Slack channel
 
 ## Development
 
 ```bash
-git clone https://github.com/amitranjan/kite-mcp.git
+git clone https://github.com/aranjan/kite-mcp.git
 cd kite-mcp
 python -m venv venv
 source venv/bin/activate

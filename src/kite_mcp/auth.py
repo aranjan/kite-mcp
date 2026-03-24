@@ -38,7 +38,7 @@ def load_credentials() -> dict:
     if missing:
         print(
             f"Error: Missing required environment variables: {', '.join(missing)}\n"
-            "Set them in your shell or in Claude Desktop's mcpServers.kite.env config.",
+            "Set them in your shell or in your MCP client's env config.",
             file=sys.stderr,
         )
         raise SystemExit(1)
