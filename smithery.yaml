@@ -14,11 +14,11 @@ configSchema:
     kiteApiKey:
       type: string
       title: "Kite API Key"
-      description: "Your Kite Connect API key"
+      description: "Your Kite Connect API key from developers.kite.trade"
     kiteApiSecret:
       type: string
       title: "Kite API Secret"
-      description: "Your Kite Connect API secret"
+      description: "Your Kite Connect API secret from developers.kite.trade"
     kiteUserId:
       type: string
       title: "Zerodha User ID"
@@ -29,8 +29,9 @@ configSchema:
       description: "Your Zerodha login password"
     kiteTotpSecret:
       type: string
-      title: "TOTP Secret"
-      description: "Base32 TOTP seed for automated login. Optional -- without this you must run kite-mcp-login manually each day."
+      title: "TOTP Secret (Optional)"
+      description: "Base32 TOTP seed for fully automated login. Get this by switching to an external authenticator app in Zerodha security settings. Without this, you must run kite-mcp-login manually each day."
+      default: ""
 
 commandFunction:
   |-

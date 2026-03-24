@@ -1,13 +1,20 @@
 """Zerodha Kite MCP Server — exposes Kite Connect as tools for AI assistants."""
 
 import json
+from typing import Annotated
 
 from kiteconnect import exceptions as kite_exceptions
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from kite_mcp.auth import automated_login, get_authenticated_kite, load_credentials
 
 mcp = FastMCP("kite")
+
+# Annotation presets
+READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
+WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
+DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False)
 
 
 def _kite():
@@ -32,7 +39,7 @@ def _kite():
     return kite
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def kite_login() -> str:
     """Authenticate with Zerodha Kite. Auto-generates TOTP and logs in. Call this if other tools fail with auth errors."""
     creds = load_credentials()
@@ -45,7 +52,7 @@ def kite_login() -> str:
     return "Login successful. Access token refreshed."
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_holdings() -> str:
     """Get all holdings in the portfolio with quantity, average price, last price, and P&L."""
     kite = _kite()
@@ -73,40 +80,43 @@ def get_holdings() -> str:
     return json.dumps(result, indent=2)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_positions() -> str:
     """Get current day's positions (both day and net)."""
     kite = _kite()
     return json.dumps(kite.positions(), indent=2, default=str)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_orders() -> str:
     """Get all orders placed today."""
     kite = _kite()
     return json.dumps(kite.orders(), indent=2, default=str)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_margins() -> str:
     """Get account margins/funds available for trading (equity and commodity segments)."""
     kite = _kite()
     return json.dumps(kite.margins(), indent=2, default=str)
 
 
-@mcp.tool()
-def get_quote(instruments: list[str]) -> str:
+@mcp.tool(annotations=READ_ONLY)
+def get_quote(
+    instruments: Annotated[list[str], "List of instruments with exchange prefix, e.g. ['NSE:RELIANCE', 'NSE:INFY']"],
+) -> str:
     """Get live market quote for one or more instruments. Use NSE: prefix for stocks (e.g., NSE:RELIANCE, NSE:INFY). Falls back to holdings/positions data if the market data API is not available."""
     kite = _kite()
     try:
         return json.dumps(kite.quote(instruments), indent=2, default=str)
     except Exception:
-        # Fallback: build quotes from holdings and positions data
         return _quote_fallback(kite, instruments)
 
 
-@mcp.tool()
-def get_ohlc(instruments: list[str]) -> str:
+@mcp.tool(annotations=READ_ONLY)
+def get_ohlc(
+    instruments: Annotated[list[str], "List of instruments with exchange prefix, e.g. ['NSE:RELIANCE', 'NSE:INFY']"],
+) -> str:
     """Get OHLC (open, high, low, close) and last price for instruments. Falls back to holdings/positions data if the market data API is not available."""
     kite = _kite()
     try:
@@ -120,7 +130,6 @@ def _quote_fallback(kite, instruments: list[str]) -> str:
     holdings = kite.holdings()
     positions = kite.positions()
 
-    # Build a lookup by tradingsymbol
     price_map = {}
     for h in holdings:
         symbol = h["tradingsymbol"]
@@ -144,7 +153,6 @@ def _quote_fallback(kite, instruments: list[str]) -> str:
 
     result = {}
     for inst in instruments:
-        # Extract symbol from "NSE:RELIANCE" format
         symbol = inst.split(":")[-1] if ":" in inst else inst
         if symbol in price_map:
             result[inst] = price_map[symbol]
@@ -154,8 +162,13 @@ def _quote_fallback(kite, instruments: list[str]) -> str:
     return json.dumps(result, indent=2, default=str)
 
 
-@mcp.tool()
-def get_historical_data(instrument_token: int, from_date: str, to_date: str, interval: str) -> str:
+@mcp.tool(annotations=READ_ONLY)
+def get_historical_data(
+    instrument_token: Annotated[int, "Numeric instrument token (use get_instruments to find it)"],
+    from_date: Annotated[str, "Start date in YYYY-MM-DD format"],
+    to_date: Annotated[str, "End date in YYYY-MM-DD format"],
+    interval: Annotated[str, "Candle interval: minute, day, 3minute, 5minute, 10minute, 15minute, 30minute, 60minute"],
+) -> str:
     """Get historical candle data for an instrument. Interval can be: minute, day, 3minute, 5minute, 10minute, 15minute, 30minute, 60minute."""
     kite = _kite()
     data = kite.historical_data(
@@ -167,8 +180,11 @@ def get_historical_data(instrument_token: int, from_date: str, to_date: str, int
     return json.dumps(data, indent=2, default=str)
 
 
-@mcp.tool()
-def get_instruments(exchange: str, search: str = "") -> str:
+@mcp.tool(annotations=READ_ONLY)
+def get_instruments(
+    exchange: Annotated[str, "Exchange name: NSE, BSE, NFO, BFO, CDS, MCX"],
+    search: Annotated[str, "Optional: filter instruments by trading symbol (case-insensitive substring match)"] = "",
+) -> str:
     """Get list of tradeable instruments for an exchange. Use to find instrument_token for historical data. Exchange: NSE, BSE, NFO, BFO, CDS, MCX."""
     kite = _kite()
     instruments = kite.instruments(exchange)
@@ -192,17 +208,17 @@ def get_instruments(exchange: str, search: str = "") -> str:
     return msg
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def place_order(
-    tradingsymbol: str,
-    exchange: str,
-    transaction_type: str,
-    quantity: int,
-    order_type: str,
-    product: str,
-    price: float | None = None,
-    trigger_price: float | None = None,
-    variety: str = "regular",
+    tradingsymbol: Annotated[str, "Trading symbol, e.g. RELIANCE, INFY"],
+    exchange: Annotated[str, "Exchange: NSE or BSE"],
+    transaction_type: Annotated[str, "BUY or SELL"],
+    quantity: Annotated[int, "Number of shares"],
+    order_type: Annotated[str, "MARKET, LIMIT, SL, or SL-M"],
+    product: Annotated[str, "CNC (delivery), MIS (intraday), or NRML (F&O normal)"],
+    price: Annotated[float | None, "Price for LIMIT/SL orders. Not needed for MARKET orders."] = None,
+    trigger_price: Annotated[float | None, "Trigger price for SL/SL-M orders."] = None,
+    variety: Annotated[str, "Order variety: regular, amo (after-market). Default: regular"] = "regular",
 ) -> str:
     """Place a buy or sell order. Returns order ID on success. Use variety='regular' for normal orders, 'amo' for after-market orders."""
     kite = _kite()
@@ -222,14 +238,14 @@ def place_order(
     return json.dumps({"status": "success", "order_id": order_id})
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def modify_order(
-    order_id: str,
-    quantity: int | None = None,
-    price: float | None = None,
-    order_type: str | None = None,
-    trigger_price: float | None = None,
-    variety: str = "regular",
+    order_id: Annotated[str, "Order ID to modify"],
+    quantity: Annotated[int | None, "New quantity"] = None,
+    price: Annotated[float | None, "New price"] = None,
+    order_type: Annotated[str | None, "New order type: MARKET, LIMIT, SL, SL-M"] = None,
+    trigger_price: Annotated[float | None, "New trigger price"] = None,
+    variety: Annotated[str, "Order variety: regular, amo. Default: regular"] = "regular",
 ) -> str:
     """Modify a pending order."""
     kite = _kite()
@@ -246,29 +262,32 @@ def modify_order(
     return json.dumps({"status": "success", "order_id": oid})
 
 
-@mcp.tool()
-def cancel_order(order_id: str, variety: str = "regular") -> str:
+@mcp.tool(annotations=DESTRUCTIVE)
+def cancel_order(
+    order_id: Annotated[str, "Order ID to cancel"],
+    variety: Annotated[str, "Order variety: regular, amo. Default: regular"] = "regular",
+) -> str:
     """Cancel a pending order."""
     kite = _kite()
     oid = kite.cancel_order(variety=variety, order_id=order_id)
     return json.dumps({"status": "success", "order_id": oid})
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 def get_gtt_triggers() -> str:
     """Get all active GTT (Good Till Triggered) triggers."""
     kite = _kite()
     return json.dumps(kite.get_gtts(), indent=2, default=str)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def place_gtt(
-    trigger_type: str,
-    tradingsymbol: str,
-    exchange: str,
-    trigger_values: list[float],
-    last_price: float,
-    orders: list[dict],
+    trigger_type: Annotated[str, "Trigger type: single or two-leg (OCO)"],
+    tradingsymbol: Annotated[str, "Trading symbol, e.g. RELIANCE"],
+    exchange: Annotated[str, "Exchange: NSE or BSE"],
+    trigger_values: Annotated[list[float], "Trigger price(s). One for single, two for OCO [stoploss, target]."],
+    last_price: Annotated[float, "Current market price of the instrument"],
+    orders: Annotated[list[dict], "Order legs. Each: {transaction_type, quantity, price, order_type, product}"],
 ) -> str:
     """Place a GTT (Good Till Triggered) order. Supports single and two-leg (OCO) triggers."""
     kite = _kite()
