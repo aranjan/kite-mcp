@@ -1,5 +1,8 @@
 # kite-mcp
 
+[![PyPI version](https://badge.fury.io/py/kite-mcp.svg)](https://pypi.org/project/kite-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 MCP server for [Zerodha Kite](https://kite.zerodha.com/) -- trade Indian stocks through natural conversation with any [MCP-compatible](https://modelcontextprotocol.io/) AI assistant.
 
 ## Why an MCP server instead of a Python library?
