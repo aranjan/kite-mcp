@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kite MCP logo">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="56" x2="448" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="128" y1="112" x2="384" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="40" y="40" width="432" height="432" rx="108" fill="url(#bg)"/>
+  <rect x="40" y="40" width="432" height="432" rx="108" stroke="#CBD5E1" stroke-width="2"/>
+
+  <g filter="url(#shadow)">
+    <path d="M164 134C164 120.745 174.745 110 188 110H218C231.255 110 242 120.745 242 134V225.5L327.109 124.963C331.668 119.577 338.362 116.469 345.418 116.469H386.432C396.813 116.469 402.475 128.585 395.787 136.525L305.355 243.859L408.286 371.852C414.585 379.682 409.009 391.25 398.96 391.25H357.307C349.93 391.25 342.951 387.949 338.278 382.262L242 265.08V368C242 381.255 231.255 392 218 392H188C174.745 392 164 381.255 164 368V134Z" fill="#0F172A"/>
+  </g>
+
+  <path d="M355 169C382.614 169 405 191.386 405 219C405 246.614 382.614 269 355 269C327.386 269 305 246.614 305 219C305 191.386 327.386 169 355 169Z" fill="url(#accent)"/>
+  <path d="M363 186L374.948 208.229L399 212.18L381.754 229.821L385.038 254L363 243.363L340.962 254L344.246 229.821L327 212.18L351.052 208.229L363 186Z" fill="white" fill-opacity="0.96"/>
+
+  <circle cx="122" cy="390" r="14" fill="#2563EB"/>
+  <circle cx="390" cy="113" r="10" fill="#F97316"/>
+  <path d="M122 390C190 322 255 294 350 266" stroke="#94A3B8" stroke-width="10" stroke-linecap="round" stroke-dasharray="1 20"/>
+</svg>
