@@ -12,14 +12,14 @@ def login():
         print("Error: KITE_TOTP_SECRET is required for auto-login.", file=sys.stderr)
         sys.exit(1)
 
-    token = automated_login(
+    automated_login(
         creds["api_key"],
         creds["api_secret"],
         creds["user_id"],
         creds["password"],
         creds["totp_secret"],
     )
-    print(f"Login successful. Token cached for today.")
+    print("Login successful. Token cached for today.")
 
 
 def status():
