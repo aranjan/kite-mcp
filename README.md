@@ -13,6 +13,8 @@
 
 MCP server for [Zerodha Kite](https://kite.zerodha.com/) -- trade Indian stocks through natural conversation with any [MCP-compatible](https://modelcontextprotocol.io/) AI assistant.
 
+[![kite-mcp MCP server](https://glama.ai/mcp/servers/aranjan/kite-mcp/badges/card.svg)](https://glama.ai/mcp/servers/aranjan/kite-mcp)
+
 ## Why an MCP server instead of a Python library?
 
 Traditional Kite wrappers require you to write Python code to trade. With kite-mcp, you just talk:
