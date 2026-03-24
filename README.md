@@ -177,6 +177,18 @@ This caches the access token for the rest of the day. The MCP server will use th
 - **Scheduled reports** -- Combine with MCP scheduled tasks to get a daily portfolio summary at 9am
 - **Slack integration** -- Pair with Slack MCP to receive portfolio alerts in your Slack channel
 
+## Roadmap
+
+- [ ] Option chain data for F&O traders
+- [ ] Basket orders -- place multiple orders in one command
+- [ ] Mutual fund tools -- buy, redeem, check SIPs
+- [ ] Watchlist management
+- [ ] Portfolio analytics -- sector allocation, diversification score
+- [ ] Webhook/streaming support for real-time price alerts
+- [ ] Support for multiple Zerodha accounts
+
+Have an idea? [Open a feature request](https://github.com/aranjan/kite-mcp/issues/new?template=feature_request.md).
+
 ## Development
 
 ```bash
