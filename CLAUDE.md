@@ -21,6 +21,26 @@ User (natural language) -> AI Assistant -> kite-mcp (MCP/stdio) -> Zerodha Kite 
 - Auto-authenticates using TOTP via `pyotp`
 - Token cached at `~/.zerodha_kite_token.json` (expires daily)
 
+## Broader System Context
+
+kite-mcp is part of a multi-broker trading system:
+
+```
+Claude Desktop
+  ├── kite-mcp          → Zerodha portfolio + orders (auto TOTP)
+  ├── zerodha-official   → Free quotes for any NSE stock (browser OAuth)
+  ├── icici-mcp         → ICICI Direct portfolio + orders (Playwright TOTP)
+  ├── finance MCP       → Technical analysis (RSI, MACD, Bollinger, MA)
+  └── Slack MCP         → Post to #kite-portfolio
+```
+
+**Related projects:**
+- `~/icici-mcp/` — ICICI Direct MCP server (separate repo)
+- `~/finance-mcp-wrapper.py` — Async wrapper for finance-mcp-server
+- `~/trading-agent-prompt.md` — Scheduled task prompts for daily/EOD/weekly reports
+- `~/test_claude_config.py` — Validates Claude Desktop config
+- `~/improvements-26-march.md` — Planned improvements backlog
+
 ## Project Structure
 
 ```
@@ -42,6 +62,7 @@ User (natural language) -> AI Assistant -> kite-mcp (MCP/stdio) -> Zerodha Kite 
   LICENSE             # MIT
   README.md
   logo.svg
+  promotion-activities.md  # Marketing plan with draft posts
   .github/
     workflows/ci.yml  # CI: ruff lint, syntax, imports, tests across Python 3.10-3.13
     ISSUE_TEMPLATE/   # Bug report + feature request templates
@@ -50,7 +71,7 @@ User (natural language) -> AI Assistant -> kite-mcp (MCP/stdio) -> Zerodha Kite 
 
 ## Key Files
 
-- **src/kite_mcp/auth.py** -- all authentication logic lives here. Functions are parameterized (no module-level globals). `get_authenticated_kite()` tries cached token first, then auto-login if TOTP available.
+- **src/kite_mcp/auth.py** -- all authentication logic. `get_authenticated_kite()` tries cached token first, then auto-login if TOTP available. `automated_login()` POSTs to Kite login/twofa endpoints, generates TOTP with pyotp, follows redirects to get request_token, exchanges for access_token.
 - **src/kite_mcp/server.py** -- all 14 tools. `_kite()` helper validates token with `kite.profile()` and auto-retries on `TokenException`. Tools use `Annotated` type hints for parameter descriptions and `ToolAnnotations` for read-only/write/destructive hints.
 - **src/kite_mcp/cli.py** -- `login()` and `status()` for standalone CLI use.
 
@@ -62,7 +83,7 @@ User (natural language) -> AI Assistant -> kite-mcp (MCP/stdio) -> Zerodha Kite 
 | get_holdings | READ_ONLY | Portfolio holdings with P&L |
 | get_positions | READ_ONLY | Day and net positions |
 | get_orders | READ_ONLY | Today's orders |
-| get_margins | READ_ONLY | Available funds |
+| get_margins | READ_ONLY | Available funds (may 504 at market open) |
 | get_quote | READ_ONLY | Live quotes (falls back to holdings data on personal apps) |
 | get_ohlc | READ_ONLY | OHLC data (falls back to holdings data on personal apps) |
 | get_historical_data | READ_ONLY | Historical candles |
@@ -91,13 +112,23 @@ User (natural language) -> AI Assistant -> kite-mcp (MCP/stdio) -> Zerodha Kite 
 - **Entry points:** ~/kite-mcp/venv/bin/kite-mcp, ~/kite-mcp/venv/bin/kite-mcp-login
 - **Claude Desktop config:** ~/Library/Application Support/Claude/claude_desktop_config.json
   - Command: /Users/arn/kite-mcp/venv/bin/kite-mcp
-  - Env vars configured with Amit's credentials
+  - Env vars configured with credentials
 
 ## Credentials Storage
 
 - Kite credentials: environment variables in ~/.bashrc and Claude Desktop config
 - Kite access token: ~/.zerodha_kite_token.json (auto-refreshed daily)
 - PyPI recovery codes: ~/.config/pypi/recovery_codes.txt (chmod 600)
+
+## Pre-push Checklist
+
+Always run before pushing:
+```bash
+cd ~/kite-mcp
+./venv/bin/ruff check src/          # Lint
+./venv/bin/pytest tests/ -v         # Tests
+python3 ~/test_claude_config.py     # Config validation (if config changed)
+```
 
 ## Build and Publish
 
@@ -111,8 +142,9 @@ cd ~/kite-mcp && rm -rf dist/ && ./venv/bin/python -m build
 # Remember to:
 # 1. Bump version in pyproject.toml and src/kite_mcp/__init__.py
 # 2. Update CHANGELOG.md
-# 3. git commit and push
-# 4. Create GitHub release: gh release create vX.Y.Z
+# 3. Run ruff + pytest before committing
+# 4. git commit and push
+# 5. Create GitHub release: gh release create vX.Y.Z
 ```
 
 ## Testing
@@ -125,9 +157,20 @@ cd ~/kite-mcp && ./venv/bin/pytest tests/ -v
 
 ## Known Limitations
 
-- **Personal Kite Connect apps** don't have market data API access. get_quote and get_ohlc fall back to holdings/positions data for stocks you own. Upgrade to a publisher app for full quote access.
+- **Personal Kite Connect apps** don't have market data API access. get_quote and get_ohlc fall back to holdings/positions data for stocks you own. The zerodha-official MCP (mcp.kite.trade) provides free quotes for any stock as an alternative.
 - **Kite access tokens expire daily.** With KITE_TOTP_SECRET set, the server auto-refreshes. Without it, run `kite-mcp-login` manually each morning.
-- **Smithery quality score (35/100)** -- Smithery can't discover tools because the server needs real credentials to start. This is expected for credential-dependent servers.
+- **get_margins may 504 at market open** (9:15 AM IST) due to API congestion. Scheduled tasks should run at 9:20 AM to avoid this.
+- **Smithery quality score (35/100)** -- Smithery can't discover tools because the server needs real credentials to start. Expected for credential-dependent servers.
+- **Token files are currently world-readable** -- needs chmod 600 fix (see improvements-26-march.md)
+- **Missing order validation** -- no quantity/price checks before placing orders (planned fix)
+- **No logging** -- errors are silent, hard to debug scheduled task failures (planned fix)
+- **Bare except clauses** in get_quote/get_ohlc hide real errors (planned fix)
+
+## Known Issues with Scheduled Tasks
+
+- **Slack channel search intermittent** -- #kite-portfolio sometimes not found. Hardcode channel name in prompts instead of searching.
+- **get_margins 504 at market open** -- schedule tasks at 9:20 AM, not 9:15 AM
+- **Co-work tasks need tool permissions** -- first run of each task requires manual approval. Add all tools to "Always Allowed".
 
 ## Distribution Status
 
@@ -141,12 +184,24 @@ cd ~/kite-mcp && ./venv/bin/pytest tests/ -v
 | Glama | Submitted for review |
 | Product Hunt | Posted |
 
+## Scheduled Tasks (Co-work)
+
+Three scheduled tasks use this MCP along with icici-mcp and finance MCP:
+1. **Daily trading agent** -- Weekdays 9:20 AM IST -- full portfolio report
+2. **EOD trading review** -- Weekdays 3:35 PM IST -- market close review
+3. **Weekly portfolio digest** -- Fridays 4:00 PM IST -- week in review
+
+Prompts saved at: `~/trading-agent-prompt.md`
+
 ## Roadmap
 
 - Option chain data for F&O traders
 - Basket orders
 - Mutual fund tools
 - Watchlist management
-- Portfolio analytics
+- Portfolio analytics / diversification tool
 - Webhook/streaming for real-time alerts
 - Multiple Zerodha account support
+- Order validation (quantity, price, product checks)
+- Logging to ~/.kite-mcp.log
+- Trade audit log
