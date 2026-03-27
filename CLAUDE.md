@@ -113,6 +113,8 @@ Claude Desktop
 - **Claude Desktop config:** ~/Library/Application Support/Claude/claude_desktop_config.json
   - Command: /Users/arn/kite-mcp/venv/bin/kite-mcp
   - Env vars configured with credentials
+- **Log file:** ~/.kite-mcp.log
+- **Audit log:** ~/.trading-audit.log
 
 ## Credentials Storage
 
@@ -153,7 +155,7 @@ cd ~/kite-mcp && rm -rf dist/ && ./venv/bin/python -m build
 cd ~/kite-mcp && ./venv/bin/pytest tests/ -v
 ```
 
-12 tests covering auth, server tool registration, and CLI.
+25 tests covering auth, server tool registration, order validation, quote fallback, and CLI.
 
 ## Known Limitations
 
@@ -161,10 +163,8 @@ cd ~/kite-mcp && ./venv/bin/pytest tests/ -v
 - **Kite access tokens expire daily.** With KITE_TOTP_SECRET set, the server auto-refreshes. Without it, run `kite-mcp-login` manually each morning.
 - **get_margins may 504 at market open** (9:15 AM IST) due to API congestion. Scheduled tasks should run at 9:20 AM to avoid this.
 - **Smithery quality score (35/100)** -- Smithery can't discover tools because the server needs real credentials to start. Expected for credential-dependent servers.
-- **Token files are currently world-readable** -- needs chmod 600 fix (see improvements-26-march.md)
-- **Missing order validation** -- no quantity/price checks before placing orders (planned fix)
-- **No logging** -- errors are silent, hard to debug scheduled task failures (planned fix)
-- **Bare except clauses** in get_quote/get_ohlc hide real errors (planned fix)
+- **Logging to ~/.kite-mcp.log** (rotating, 5MB, 3 backups)
+- **Trade audit log at ~/.trading-audit.log** (JSON lines, chmod 600)
 
 ## Known Issues with Scheduled Tasks
 
@@ -202,6 +202,3 @@ Prompts saved at: `~/trading-agent-prompt.md`
 - Portfolio analytics / diversification tool
 - Webhook/streaming for real-time alerts
 - Multiple Zerodha account support
-- Order validation (quantity, price, product checks)
-- Logging to ~/.kite-mcp.log
-- Trade audit log
