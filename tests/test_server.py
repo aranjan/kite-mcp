@@ -1,6 +1,9 @@
 """Tests for the server module."""
 
-from kite_mcp.server import mcp
+import json
+from unittest import mock
+
+from kite_mcp.server import mcp, place_order
 
 
 class TestToolRegistration:
@@ -35,3 +38,78 @@ class TestToolRegistration:
     def test_tools_have_descriptions(self):
         for tool in mcp._tool_manager.list_tools():
             assert tool.description, f"Tool '{tool.name}' has no description"
+
+
+class TestOrderValidation:
+    """Test input validation for place_order."""
+
+    def test_rejects_zero_quantity(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=0, order_type="MARKET", product="CNC",
+        ))
+        assert result["status"] == "error"
+        assert "Quantity" in result["message"]
+
+    def test_rejects_negative_quantity(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=-10, order_type="MARKET", product="CNC",
+        ))
+        assert result["status"] == "error"
+
+    def test_rejects_invalid_transaction_type(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="HOLD",
+            quantity=10, order_type="MARKET", product="CNC",
+        ))
+        assert result["status"] == "error"
+        assert "transaction_type" in result["message"]
+
+    def test_rejects_invalid_product(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="MARKET", product="INVALID",
+        ))
+        assert result["status"] == "error"
+        assert "product" in result["message"]
+
+    def test_rejects_invalid_order_type(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="FOK", product="CNC",
+        ))
+        assert result["status"] == "error"
+        assert "order_type" in result["message"]
+
+    def test_rejects_limit_without_price(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="LIMIT", product="CNC",
+        ))
+        assert result["status"] == "error"
+        assert "price" in result["message"]
+
+    def test_rejects_sl_without_trigger_price(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="SL", product="CNC", price=1400.0,
+        ))
+        assert result["status"] == "error"
+        assert "trigger_price" in result["message"]
+
+    def test_rejects_negative_price(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="MARKET", product="CNC", price=-100.0,
+        ))
+        assert result["status"] == "error"
+        assert "negative" in result["message"].lower()
+
+    def test_rejects_invalid_variety(self):
+        result = json.loads(place_order(
+            tradingsymbol="RELIANCE", exchange="NSE", transaction_type="BUY",
+            quantity=10, order_type="MARKET", product="CNC", variety="invalid",
+        ))
+        assert result["status"] == "error"
+        assert "variety" in result["message"]

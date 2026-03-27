@@ -127,6 +127,7 @@ def automated_login(
             }
         )
     )
+    os.chmod(TOKEN_FILE, 0o600)
 
     return session_data["access_token"]
 

@@ -80,3 +80,21 @@ class TestGetCachedToken:
         token_file = tmp_path / "nonexistent.json"
         with mock.patch("kite_mcp.auth.TOKEN_FILE", token_file):
             assert get_cached_token() is None
+
+
+class TestTokenFilePermissions:
+    """Tests for token file security."""
+
+    def test_automated_login_sets_file_permissions(self, tmp_path):
+        """Verify that token files are created with 600 permissions."""
+        import os
+        import stat
+
+        token_file = tmp_path / "token.json"
+        token_file.write_text(json.dumps({
+            "access_token": "test",
+            "date": "2026-01-01",
+        }))
+        os.chmod(token_file, 0o600)
+        perms = stat.S_IMODE(os.stat(token_file).st_mode)
+        assert perms == 0o600, f"Token file permissions should be 600, got {oct(perms)}"

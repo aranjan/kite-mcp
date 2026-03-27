@@ -27,14 +27,26 @@ def _kite():
         kite.profile()
     except (kite_exceptions.TokenException, kite_exceptions.PermissionException):
         # Token is stale/invalidated — force a fresh login
-        if creds["totp_secret"]:
+        if not creds["totp_secret"]:
+            raise RuntimeError(
+                "Token expired and KITE_TOTP_SECRET not set. "
+                "Run 'kite-mcp-login' to refresh manually."
+            )
+        try:
             token = automated_login(
                 creds["api_key"], creds["api_secret"],
                 creds["user_id"], creds["password"], creds["totp_secret"],
             )
             kite.set_access_token(token)
-        else:
-            raise RuntimeError("Token expired and KITE_TOTP_SECRET not set. Run 'kite-mcp-login'.")
+        except Exception as e:
+            raise RuntimeError(
+                f"Token expired and auto-login failed: {type(e).__name__}: {e}. "
+                "Run 'kite-mcp-login' to refresh manually."
+            ) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to validate Kite session: {type(e).__name__}: {e}"
+        ) from e
 
     return kite
 
@@ -221,14 +233,32 @@ def place_order(
     variety: Annotated[str, "Order variety: regular, amo (after-market). Default: regular"] = "regular",
 ) -> str:
     """Place a buy or sell order. Returns order ID on success. Use variety='regular' for normal orders, 'amo' for after-market orders."""
+    # Input validation
+    if quantity <= 0:
+        return json.dumps({"status": "error", "message": "Quantity must be greater than 0"})
+    if transaction_type.upper() not in ("BUY", "SELL"):
+        return json.dumps({"status": "error", "message": f"Invalid transaction_type: {transaction_type}. Must be BUY or SELL"})
+    if product.upper() not in ("CNC", "MIS", "NRML"):
+        return json.dumps({"status": "error", "message": f"Invalid product: {product}. Must be CNC, MIS, or NRML"})
+    if order_type.upper() not in ("MARKET", "LIMIT", "SL", "SL-M"):
+        return json.dumps({"status": "error", "message": f"Invalid order_type: {order_type}. Must be MARKET, LIMIT, SL, or SL-M"})
+    if order_type.upper() in ("LIMIT", "SL") and (price is None or price <= 0):
+        return json.dumps({"status": "error", "message": f"{order_type} orders require a price > 0"})
+    if order_type.upper() in ("SL", "SL-M") and (trigger_price is None or trigger_price <= 0):
+        return json.dumps({"status": "error", "message": f"{order_type} orders require a trigger_price > 0"})
+    if price is not None and price < 0:
+        return json.dumps({"status": "error", "message": "Price cannot be negative"})
+    if variety not in ("regular", "amo"):
+        return json.dumps({"status": "error", "message": f"Invalid variety: {variety}. Must be regular or amo"})
+
     kite = _kite()
     params = {
         "tradingsymbol": tradingsymbol,
         "exchange": exchange,
-        "transaction_type": transaction_type,
+        "transaction_type": transaction_type.upper(),
         "quantity": quantity,
-        "order_type": order_type,
-        "product": product,
+        "order_type": order_type.upper(),
+        "product": product.upper(),
     }
     if price is not None:
         params["price"] = price
