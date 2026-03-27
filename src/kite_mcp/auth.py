@@ -1,9 +1,11 @@
 """Shared authentication module for Kite MCP server."""
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -12,6 +14,23 @@ import requests
 from kiteconnect import KiteConnect
 
 TOKEN_FILE = Path.home() / ".zerodha_kite_token.json"
+
+
+def _setup_logger():
+    logger = logging.getLogger("kite_mcp")
+    if not logger.handlers:
+        handler = RotatingFileHandler(
+            Path.home() / ".kite-mcp.log", maxBytes=5 * 1024 * 1024, backupCount=3
+        )
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+    return logger
+
+
+logger = _setup_logger()
 
 
 def load_credentials() -> dict:
@@ -52,7 +71,9 @@ def get_cached_token() -> str | None:
     if TOKEN_FILE.exists():
         data = json.loads(TOKEN_FILE.read_text())
         if data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+            logger.debug("Using cached token")
             return data["access_token"]
+        logger.warning("Cached token expired, re-authenticating")
     return None
 
 
@@ -67,6 +88,7 @@ def automated_login(
 
     Returns the access_token and saves it to TOKEN_FILE.
     """
+    logger.info("Attempting auto-login for Kite")
     session = requests.Session()
 
     # Step 1: Login with credentials
@@ -77,6 +99,7 @@ def automated_login(
     resp.raise_for_status()
     login_data = resp.json()
     if login_data.get("status") != "success":
+        logger.error(f"Login failed: {login_data}")
         raise RuntimeError(f"Login failed: {login_data}")
 
     request_id = login_data["data"]["request_id"]
@@ -95,6 +118,7 @@ def automated_login(
     resp.raise_for_status()
     twofa_data = resp.json()
     if twofa_data.get("status") != "success":
+        logger.error(f"Login failed: {twofa_data}")
         raise RuntimeError(f"2FA failed: {twofa_data}")
 
     # Step 3: Get request_token via redirect
@@ -113,6 +137,7 @@ def automated_login(
         resp = session.get(redirect_url, allow_redirects=False)
 
     if not request_token:
+        logger.error("Login failed: Could not extract request_token from redirect chain")
         raise RuntimeError("Could not extract request_token from redirect chain")
 
     # Step 4: Exchange for access_token
@@ -129,6 +154,7 @@ def automated_login(
     )
     os.chmod(TOKEN_FILE, 0o600)
 
+    logger.info("Login successful, token cached")
     return session_data["access_token"]
 
 

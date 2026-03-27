@@ -98,3 +98,17 @@ class TestTokenFilePermissions:
         os.chmod(token_file, 0o600)
         perms = stat.S_IMODE(os.stat(token_file).st_mode)
         assert perms == 0o600, f"Token file permissions should be 600, got {oct(perms)}"
+
+
+class TestAutoLoginFailure:
+    def test_get_authenticated_kite_raises_without_totp(self):
+        """If no cached token and no TOTP secret, should raise RuntimeError."""
+        creds = {
+            "api_key": "key", "api_secret": "secret",
+            "user_id": "AB1234", "password": "pass",
+            "totp_secret": None,
+        }
+        with mock.patch("kite_mcp.auth.get_cached_token", return_value=None):
+            with pytest.raises(RuntimeError, match="KITE_TOTP_SECRET"):
+                from kite_mcp.auth import get_authenticated_kite
+                get_authenticated_kite(creds)

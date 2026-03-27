@@ -1,13 +1,35 @@
 """Zerodha Kite MCP Server — exposes Kite Connect as tools for AI assistants."""
 
 import json
+import os
+from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 from kiteconnect import exceptions as kite_exceptions
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
-from kite_mcp.auth import automated_login, get_authenticated_kite, load_credentials
+from kite_mcp.auth import automated_login, get_authenticated_kite, load_credentials, logger
+
+AUDIT_LOG = Path.home() / ".trading-audit.log"
+
+
+def _log_trade(action, details, result=None):
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "broker": "zerodha",
+        "action": action,
+        **details,
+    }
+    if result:
+        entry["result"] = result
+    with open(AUDIT_LOG, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    try:
+        os.chmod(AUDIT_LOG, 0o600)
+    except OSError:
+        pass
 
 mcp = FastMCP("kite")
 
@@ -24,9 +46,12 @@ def _kite():
 
     # Validate the token is actually working by making a lightweight call
     try:
+        logger.debug("Validating token with profile check")
         kite.profile()
+        logger.debug("Profile check passed, token is valid")
     except (kite_exceptions.TokenException, kite_exceptions.PermissionException):
         # Token is stale/invalidated — force a fresh login
+        logger.warning("Token expired or invalid, attempting re-authentication")
         if not creds["totp_secret"]:
             raise RuntimeError(
                 "Token expired and KITE_TOTP_SECRET not set. "
@@ -38,12 +63,15 @@ def _kite():
                 creds["user_id"], creds["password"], creds["totp_secret"],
             )
             kite.set_access_token(token)
+            logger.info("Token refreshed successfully")
         except Exception as e:
+            logger.error(f"Auto-login failed during token refresh: {e}")
             raise RuntimeError(
                 f"Token expired and auto-login failed: {type(e).__name__}: {e}. "
                 "Run 'kite-mcp-login' to refresh manually."
             ) from e
     except Exception as e:
+        logger.error(f"Failed to validate Kite session: {e}")
         raise RuntimeError(
             f"Failed to validate Kite session: {type(e).__name__}: {e}"
         ) from e
@@ -121,7 +149,11 @@ def get_quote(
     kite = _kite()
     try:
         return json.dumps(kite.quote(instruments), indent=2, default=str)
-    except Exception:
+    except (kite_exceptions.DataException, kite_exceptions.PermissionException) as e:
+        logger.warning(f"Quote API unavailable ({type(e).__name__}), using fallback")
+        return _quote_fallback(kite, instruments)
+    except kite_exceptions.NetworkException as e:
+        logger.error(f"Network error in get_quote: {e}")
         return _quote_fallback(kite, instruments)
 
 
@@ -133,7 +165,11 @@ def get_ohlc(
     kite = _kite()
     try:
         return json.dumps(kite.ohlc(instruments), indent=2, default=str)
-    except Exception:
+    except (kite_exceptions.DataException, kite_exceptions.PermissionException) as e:
+        logger.warning(f"OHLC API unavailable ({type(e).__name__}), using fallback")
+        return _quote_fallback(kite, instruments)
+    except kite_exceptions.NetworkException as e:
+        logger.error(f"Network error in get_ohlc: {e}")
         return _quote_fallback(kite, instruments)
 
 
@@ -264,8 +300,25 @@ def place_order(
         params["price"] = price
     if trigger_price is not None:
         params["trigger_price"] = trigger_price
-    order_id = kite.place_order(variety=variety, **params)
-    return json.dumps({"status": "success", "order_id": order_id})
+    trade_details = {
+        "symbol": tradingsymbol,
+        "exchange": exchange,
+        "transaction_type": transaction_type.upper(),
+        "quantity": quantity,
+        "order_type": order_type.upper(),
+        "product": product.upper(),
+        "price": price,
+        "trigger_price": trigger_price,
+        "variety": variety,
+    }
+    _log_trade("place_order", trade_details)
+    try:
+        order_id = kite.place_order(variety=variety, **params)
+        _log_trade("place_order", trade_details, result={"order_id": order_id})
+        return json.dumps({"status": "success", "order_id": order_id})
+    except Exception as e:
+        _log_trade("place_order", trade_details, result={"error": str(e)})
+        raise
 
 
 @mcp.tool(annotations=WRITE)
@@ -288,8 +341,15 @@ def modify_order(
         params["order_type"] = order_type
     if trigger_price is not None:
         params["trigger_price"] = trigger_price
-    oid = kite.modify_order(variety=variety, order_id=order_id, **params)
-    return json.dumps({"status": "success", "order_id": oid})
+    trade_details = {"order_id": order_id, "variety": variety, "changes": params}
+    _log_trade("modify_order", trade_details)
+    try:
+        oid = kite.modify_order(variety=variety, order_id=order_id, **params)
+        _log_trade("modify_order", trade_details, result={"order_id": oid})
+        return json.dumps({"status": "success", "order_id": oid})
+    except Exception as e:
+        _log_trade("modify_order", trade_details, result={"error": str(e)})
+        raise
 
 
 @mcp.tool(annotations=DESTRUCTIVE)
@@ -299,8 +359,15 @@ def cancel_order(
 ) -> str:
     """Cancel a pending order."""
     kite = _kite()
-    oid = kite.cancel_order(variety=variety, order_id=order_id)
-    return json.dumps({"status": "success", "order_id": oid})
+    trade_details = {"order_id": order_id, "variety": variety}
+    _log_trade("cancel_order", trade_details)
+    try:
+        oid = kite.cancel_order(variety=variety, order_id=order_id)
+        _log_trade("cancel_order", trade_details, result={"order_id": oid})
+        return json.dumps({"status": "success", "order_id": oid})
+    except Exception as e:
+        _log_trade("cancel_order", trade_details, result={"error": str(e)})
+        raise
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -324,15 +391,29 @@ def place_gtt(
     from kiteconnect import KiteConnect as KC
 
     tt = KC.GTT_TYPE_SINGLE if trigger_type == "single" else KC.GTT_TYPE_OCO
-    tid = kite.place_gtt(
-        trigger_type=tt,
-        tradingsymbol=tradingsymbol,
-        exchange=exchange,
-        trigger_values=trigger_values,
-        last_price=last_price,
-        orders=orders,
-    )
-    return json.dumps({"status": "success", "trigger_id": tid})
+    trade_details = {
+        "trigger_type": trigger_type,
+        "symbol": tradingsymbol,
+        "exchange": exchange,
+        "trigger_values": trigger_values,
+        "last_price": last_price,
+        "orders": orders,
+    }
+    _log_trade("place_gtt", trade_details)
+    try:
+        tid = kite.place_gtt(
+            trigger_type=tt,
+            tradingsymbol=tradingsymbol,
+            exchange=exchange,
+            trigger_values=trigger_values,
+            last_price=last_price,
+            orders=orders,
+        )
+        _log_trade("place_gtt", trade_details, result={"trigger_id": tid})
+        return json.dumps({"status": "success", "trigger_id": tid})
+    except Exception as e:
+        _log_trade("place_gtt", trade_details, result={"error": str(e)})
+        raise
 
 
 def main():

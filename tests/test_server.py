@@ -113,3 +113,34 @@ class TestOrderValidation:
         ))
         assert result["status"] == "error"
         assert "variety" in result["message"]
+
+
+class TestQuoteFallback:
+    def test_fallback_returns_valid_json(self):
+        """Verify _quote_fallback returns parseable JSON."""
+        from kite_mcp.server import _quote_fallback
+        from unittest import mock
+
+        mock_kite = mock.MagicMock()
+        mock_kite.holdings.return_value = [
+            {"tradingsymbol": "RELIANCE", "last_price": 1400, "average_price": 1200, "quantity": 10}
+        ]
+        mock_kite.positions.return_value = {"net": []}
+
+        result = _quote_fallback(mock_kite, ["NSE:RELIANCE"])
+        parsed = json.loads(result)
+        assert "NSE:RELIANCE" in parsed
+        assert parsed["NSE:RELIANCE"]["last_price"] == 1400
+
+    def test_fallback_handles_unknown_stock(self):
+        """Verify fallback returns error for stocks not in holdings."""
+        from kite_mcp.server import _quote_fallback
+        from unittest import mock
+
+        mock_kite = mock.MagicMock()
+        mock_kite.holdings.return_value = []
+        mock_kite.positions.return_value = {"net": []}
+
+        result = _quote_fallback(mock_kite, ["NSE:UNKNOWN"])
+        parsed = json.loads(result)
+        assert "error" in parsed["NSE:UNKNOWN"]
